@@ -165,8 +165,8 @@ function escapeHTML(value) {
   return span.innerHTML;
 }
 
-function audioButton() {
-  return '<button class="audio" type="button" data-action="speak">Слушать</button>';
+function audioButton(className = "") {
+  return `<button class="audio${className ? ` ${className}` : ""}" type="button" data-action="speak">Слушать</button>`;
 }
 
 function germanWithHints(text, tag = "span") {
@@ -371,6 +371,13 @@ function lessonThumbnail(id) {
     <span class="lesson-photo-number" aria-hidden="true">${String(id).padStart(2, "0")}</span></span>`;
 }
 
+function pageNavigation(href, label, related) {
+  return `<nav class="page-nav" aria-label="Навигация по странице">
+    <a class="home-link" href="${href}">${label}</a>
+    ${related ? `<a class="home-link page-nav-related" href="${related.href}">${related.label}</a>` : ""}
+  </nav>`;
+}
+
 function readRoute() {
   clearTimeout(reviewTimer);
   closeWordHint();
@@ -400,12 +407,12 @@ function readRoute() {
     return;
   }
   if (globalWords) {
-    elements.hero.innerHTML = '<a class="home-link" href="#home">Главная</a><h1 id="section-title">Учить слова</h1>';
+    elements.hero.innerHTML = pageNavigation("#home", "Главная") + '<h1 id="section-title">Учить слова</h1>';
     openWords();
     return;
   }
   if (repeat) {
-    elements.hero.innerHTML = '<a class="home-link" href="#home">Главная</a><h1>Повторение</h1>';
+    elements.hero.innerHTML = pageNavigation("#home", "Главная") + "<h1>Повторение</h1>";
     renderRepeatQueue();
     return;
   }
@@ -415,7 +422,7 @@ function readRoute() {
       ["grammar", "Шпаргалка по грамматике", "Правила всех семи лекций"],
       ["practice", "Повторить упражнения", "По одной теме или все задания подряд"]
     ];
-    elements.hero.innerHTML = '<a class="home-link" href="#home">Главная</a><h1 id="section-title">Итоги A1.1</h1>';
+    elements.hero.innerHTML = pageNavigation("#home", "Главная") + '<h1 id="section-title">Итоги A1.1</h1>';
     elements.content.innerHTML = `<nav class="hub-list" aria-label="Итоги курса">${activities.map(([id, title, description], index) => `
       <a class="destination${index === 0 ? " destination-main" : ""}" href="#final/${id}">
         <span><strong>${title}</strong><small>${description}</small></span>
@@ -425,7 +432,8 @@ function readRoute() {
   }
   if (uznach) {
     const scene = uznachScenes.find(item => item.id === section);
-    elements.hero.innerHTML = `<a class="home-link" href="${scene ? "#uznach" : "#home"}">${scene ? dialogueTitle : "Главная"}</a><h1>${scene ? scene.title : dialogueTitle}</h1>`;
+    elements.hero.innerHTML = pageNavigation(scene ? "#uznach" : "#home", scene ? dialogueTitle : "Главная") +
+      `<h1>${scene ? scene.title : dialogueTitle}</h1>`;
     if (scene) {
       study = { scene, answers: [], order: [], index: 0, streak: 0, bestStreak: 0 };
       openSceneStep("start");
@@ -441,8 +449,12 @@ function readRoute() {
     }
     return;
   }
+  const guidedStage = view.section === "learn" && lessonRoutes[view.id].find(stage => stage.id === topic);
+  const related = guidedStage && (guidedStage.id === "repeat"
+    ? { href: "#repeat", label: "К списку повторений" } : { href: `#${view.id}`, label: "Все шаги урока" });
+  const back = final ? ["#final", "Итоги A1.1"] : view.section === "learn" ? ["#home", "Главная"] : [`#${view.id}`, "К уроку"];
   elements.hero.innerHTML = `
-    <a class="home-link" href="${final ? "#final" : view.section === "learn" ? "#home" : `#${view.id}`}">${final ? "Итоги A1.1" : view.section === "learn" ? "Главная" : "К уроку"}</a>
+    ${pageNavigation(...back, related)}
     ${final ? "" : `<p class="page-context" lang="de">Lektion ${lesson.id}</p>`}
     <h1>${final ? { practice: "Повторить упражнения", grammar: "Шпаргалка по грамматике", test: "Итоговый тест" }[view.section] : escapeHTML(lesson.title)}</h1>`;
   elements.sections.innerHTML = final ? tabs.map(tab => `
@@ -462,9 +474,9 @@ function readRoute() {
 
 function show(title, subtitle, body, quietHeading = false) {
   elements.content.innerHTML = `
-    <header class="section-head${quietHeading && !subtitle ? " sr-only" : ""}">
+    ${title ? `<header class="section-head${quietHeading && !subtitle ? " sr-only" : ""}">
       <h2 id="section-title"${quietHeading ? ' class="sr-only"' : ""}>${title}</h2>${subtitle ? `<p>${subtitle}</p>` : ""}
-    </header>${body}`;
+    </header>` : ""}${body}`;
 }
 
 function sceneLine(scene, line) {
@@ -597,11 +609,11 @@ function renderGuidedRoute() {
     const last = saved.resume?.lessonId === Number(view.id) && resumeStage(saved.resume);
     const next = last && (progress[last.id]?.answered ?? 0) < last.tasks.length ? last : upcoming;
     show(upcoming ? "Цель урока" : "Урок пройден", route.find(item => item.id === "call").description, `
-      <div class="actions lesson-start">
+      <div class="actions">
         ${next ? `<a class="button primary" href="${base}/${next.id}">${started ? "Продолжить урок" : "Начать урок"}</a>`
           : `<a class="button primary" href="${Number(view.id) < course.length ? `#${Number(view.id) + 1}` : "#final/test"}">${Number(view.id) < course.length ? "Следующий урок" : "Перейти к итоговому тесту"}</a>`}
       </div>
-      <nav class="actions lesson-shortcuts" aria-label="Материалы урока">
+      <nav class="lesson-shortcuts" aria-label="Материалы урока">
         <a href="#${view.id}/theory">Все правила урока</a><a href="#${view.id}/practice">Дополнительная тренировка</a>
       </nav>
       ${lessonPhoto(view.id, "lesson-cover")}
@@ -624,7 +636,6 @@ function renderGuidedRoute() {
     return;
   }
   show(stage.title, stage.description, `
-    <p><a class="home-link" href="${base}">Все шаги урока</a></p>
     <div class="actions"><button class="primary" data-action="start-guided">Пройти ещё раз</button></div>`);
 }
 
@@ -932,18 +943,34 @@ function renderQuestion() {
   }
   const scene = study.scene;
   const stage = study.stage;
-  const step = stage && requiredStages(view.id).indexOf(stage);
+  const stages = stage ? requiredStages(view.id) : [];
+  const step = stages.indexOf(stage);
   const rule = stage && guidedRule(question, stage, index);
   const previousRule = document.getElementById("guided-rule");
-  const ruleOpen = previousRule?.open && previousRule.dataset.question === String(index);
+  const sameQuestion = study.renderedQuestion === question;
+  const ruleOpen = sameQuestion && previousRule?.open;
+  const transcriptOpen = sameQuestion && document.querySelector(".exercise-transcript")?.open;
+  study.renderedQuestion = question;
   const displayedAnswer = feedback?.answer && feedback.correct ? feedback.answer : answer;
   const ready = type === "order" && lengths.has(study.order.length);
   const submit = `<div class="actions"><button class="exercise-button" type="submit" ${ready ? "" : "disabled"}>${test ? "Далее" : "Проверить"}</button></div>`;
-  const audio = sourceType === "listen"
-    ? `<div class="actions"><span hidden lang="de-CH">${escapeHTML(answer)}</span>${audioButton()}</div>
-      ${test ? '<button class="audio" type="button" data-action="skip-listening">Пропустить задание на слух</button>'
-        : `<details class="dictation-help"><summary>Показать текст, если звук недоступен</summary>
-          <p lang="de-CH">${escapeHTML(answer)}</p></details>`}` : "";
+  const dictation = sourceType === "listen";
+  const audioText = context?.audio ?? (dictation ? answer : "");
+  const audio = audioText ? `<div class="exercise-audio">
+    <span hidden lang="de-CH">${escapeHTML(audioText)}</span>${audioButton("audio-play")}
+    ${test && dictation ? '<button class="audio-skip" type="button" data-action="skip-listening">Пропустить задание на слух</button>' : ""}
+  </div>` : "";
+  const transcript = audioText && !test ? `<details class="dictation-help exercise-transcript"${transcriptOpen ? " open" : ""}>
+    <summary>${context ? "Текст и перевод" : "Показать текст, если звук недоступен"}</summary>
+    <div class="transcript-body">
+      <p>${germanWithHints(audioText)}</p>
+      ${context ? `<p>${escapeHTML(context.translation)}</p>` : ""}
+    </div>
+  </details>` : "";
+  const progress = scene || questions.length === 1 ? "" : `<div class="practice-progress">
+    <span>${study.review ? "Работа над ошибками · " : ""}Задание ${index + 1} из ${questions.length}</span>
+    ${!test && study.streak > 1 ? `<small aria-live="polite">Верных подряд: ${study.streak}</small>` : ""}
+  </div>`;
   let fields;
   if (type === "choice") {
     fields = `<div class="choices">${study.optionOrder.map(position => `
@@ -951,8 +978,10 @@ function renderQuestion() {
         <span lang="${answerLanguage(options[position])}">${escapeHTML(options[position])}</span></label>`).join("")}</div>`;
   }
   if (type === "order") {
-    fields = `<p class="muted">Нажимай на слова по порядку. Повторное нажатие убирает слово из фразы.</p>
-      ${lengths.size > 1 || !lengths.has(options.length) ? '<p class="muted">Для ответа могут понадобиться не все слова.</p>' : ""}
+    fields = `<div class="order-help muted">
+      <p>Нажимай на слова по порядку. Повторное нажатие убирает слово из фразы.</p>
+      ${lengths.size > 1 || !lengths.has(options.length) ? '<p>Для ответа могут понадобиться не все слова.</p>' : ""}
+      </div>
       <div class="word-tray" aria-label="Собранная фраза">${study.order.map(position => `
         <button type="button" lang="de-CH" data-action="remove-word" data-position="${position}">${escapeHTML(options[position])}</button>
       `).join("") || '<span class="muted">Здесь появится фраза</span>'}</div>
@@ -960,31 +989,28 @@ function renderQuestion() {
         <button type="button" lang="de-CH" data-action="add-word" data-position="${position}"
           ${study.order.includes(position) ? "disabled" : ""}>${escapeHTML(options[position])}</button>`).join("")}</div>`;
   }
-  show(stage?.title || scene?.title || (test ? "Тест A1.1" : study.review ? "Работа над ошибками" : "Тренировка"),
+  show(stage ? "" : scene?.title || (test ? "Тест A1.1" : study.review ? "Работа над ошибками" : "Тренировка"),
     "", `
     ${stage ? `<div class="stage-heading">
-      <a class="home-link" href="${step < 0 ? "#repeat" : `#${view.id}`}">${step < 0 ? "К списку повторений" : "Все шаги урока"}</a>
-      <p class="muted">${step < 0 ? "Повторение" : `Шаг ${step + 1} из ${requiredStages(view.id).length}`}</p>
-      <p class="stage-title">${escapeHTML(stage.title)}</p>
-    </div>` : ""}
-    ${scene ? "" : `<div class="practice-progress">
-      <span>${study.review ? "Работа над ошибками · " : ""}Задание ${index + 1} из ${questions.length}</span>
-      ${!test && study.streak > 1 ? `<small aria-live="polite">Верных подряд: ${study.streak}</small>` : ""}
-    </div>`}
+      <div class="stage-meta">
+        <p class="muted">${step < 0 ? "Повторение" : `Шаг ${step + 1} из ${stages.length}`}</p>
+        ${step < 0 ? "" : `<span class="stage-track" aria-hidden="true">${stages.map((_, index) =>
+          `<span class="${index < step ? "stage-done" : index === step ? "stage-current" : ""}"></span>`).join("")}</span>`}
+      </div>
+      <h2 class="stage-title" id="section-title">${escapeHTML(stage.title)}</h2>
+      ${progress}
+    </div>` : progress}
     ${scene ? sceneLine(scene, study.step.line) : ""}
     ${rule ? `<aside class="stage-rule">
       <strong>${escapeHTML(rule[0])}</strong>
       <div class="example">${germanWithHints(rule[2])}${audioButton()}</div>
-      <details id="guided-rule" data-question="${index}"${ruleOpen ? " open" : ""}>
+      <details id="guided-rule"${ruleOpen ? " open" : ""}>
         <summary>Посмотреть правило</summary>${theoryCards([rule])}
       </details>
     </aside>` : ""}
     <div class="panel exercise-panel">
-      ${context ? `<div class="actions"><span hidden lang="de-CH">${escapeHTML(context.audio)}</span>${audioButton()}</div>
-        <details class="dictation-help"><summary>Текст и перевод</summary>
-          <p>${test ? escapeHTML(context.audio) : germanWithHints(context.audio)}</p><p>${escapeHTML(context.translation)}</p>
-        </details>` : ""}
-      <h3>${escapeHTML(prompt)}</h3>
+      <h3 class="exercise-question" id="exercise-question" tabindex="-1">${escapeHTML(prompt)}</h3>
+      ${audio}
       ${feedback ? `
         <div class="feedback${feedback.correct ? " feedback-correct" : ""}" role="status">
           <strong class="${feedback.correct ? "good" : "wrong"}">${feedback.correct ? "Верно" : "Проверь этот вариант"}</strong>
@@ -993,7 +1019,8 @@ function renderQuestion() {
         </div>
         <div class="actions"><button class="${feedback.correct ? "success-button" : "exercise-button"}" data-action="next">${(scene || study.stage) && !feedback.correct ? "Попробовать ещё раз" : scene ? "Продолжить разговор" : index + 1 === questions.length ? "Результат" : "Следующее задание"}</button></div>
         ${feedback.correct ? "" : errorRule(question, scene ? study.step.rule : undefined)}`
-        : `<form id="answer-form">${audio}${fields}${submit}</form>`}
+        : `<form id="answer-form" aria-labelledby="exercise-question">${fields}${submit}</form>`}
+      ${transcript}
     </div>`, true);
 }
 
@@ -1029,7 +1056,7 @@ function advance() {
   study.optionOrder = null;
   if (study.index < study.questions.length) {
     renderQuestion();
-    focusContentControl("form input, form button");
+    focusContentControl(".exercise-question");
     return;
   }
   const score = study.answers.filter(result => result.correct).length;
@@ -1135,14 +1162,14 @@ elements.content.addEventListener("click", event => {
       renderWords();
       focusContentControl("[data-action='reveal'], [data-action='scheduled-words'], [data-action='all-words']");
       break;
-    case "start": renderQuestion(); focusContentControl("form input, form button"); break;
+    case "start": renderQuestion(); focusContentControl(".exercise-question"); break;
     case "skip-listening":
       study.answers.push({ correct: false, skipped: true });
       advance();
       break;
     case "start-guided":
       startGuidedStage(lessonRoutes[view.id].find(item => item.id === view.topic));
-      focusContentControl("form input, form button");
+      focusContentControl(".exercise-question");
       break;
     case "next":
       if (study.scene) {
@@ -1153,23 +1180,23 @@ elements.content.addEventListener("click", event => {
           study.order = [];
           renderQuestion();
         }
-        focusContentControl("#answer-form input, #answer-form button");
+        focusContentControl(".exercise-question, #content a");
       } else if (study.stage) {
         advanceGuidedStage();
-        focusContentControl("form input, form button, .actions a");
+        focusContentControl(".exercise-question, .actions a");
       } else advance();
       break;
     case "scene-restart":
       study.answers = [];
       openSceneStep("start");
-      focusContentControl("#answer-form input");
+      focusContentControl(".exercise-question");
       break;
     case "retry": openPractice(); break;
     case "retry-mistakes": {
       const questions = shuffle(study.questions.filter((_, index) => !study.answers[index].correct));
       study = { test: false, review: true, questions, answers: [], index: 0, feedback: null, order: [], streak: 0, bestStreak: 0 };
       renderQuestion();
-      focusContentControl("form input, form button");
+      focusContentControl(".exercise-question");
       break;
     }
   }

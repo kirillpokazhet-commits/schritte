@@ -1,5 +1,6 @@
 // Ukrainian display strings. Keep German examples and answer keys in course.js.
 const ukrainianMessages = {
+  "Навигация по странице": "Навігація сторінкою",
   "Начать курс": "Почати курс",
   "Начать урок": "Почати урок",
   "Начать следующий урок": "Почати наступний урок",
