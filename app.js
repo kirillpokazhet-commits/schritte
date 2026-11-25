@@ -221,28 +221,53 @@ document.addEventListener("keydown", event => {
   if (event.key === "Escape") closeWordHint();
 });
 
-function speak(button) {
+let activeSpeech;
+function speak(button, useStandard = false) {
   const status = document.getElementById("audio-status");
   const synthesis = window.speechSynthesis;
   if (!synthesis || !window.SpeechSynthesisUtterance) {
     status.textContent = "Озвучка недоступна в этом браузере.";
     return;
   }
-  const source = button.previousElementSibling;
-  const text = (source.dataset.speech ?? source.textContent).replace(/\s*·\s*/g, ". ").replace(/\s*\(Plural\)/g, "");
-  const speech = new SpeechSynthesisUtterance(text);
   const voices = synthesis.getVoices();
-  const voice = voices.find(item => item.lang.toLowerCase() === "de-ch")
-    || voices.find(item => /^de(?:-|$)/i.test(item.lang));
-  if (voice) speech.voice = voice;
-  speech.lang = voice?.lang || "de-DE";
+  const swissVoices = voices.filter(item => item.lang.toLowerCase().replace(/_/g, "-") === "de-ch");
+  const standardVoices = voices.filter(item => /^de[-_]de$/i.test(item.lang));
+  const candidates = useStandard ? standardVoices : swissVoices;
+  const voice = candidates.find(item => /premium|enhanced|neural/i.test(item.name))
+    ?? candidates.find(item => item.default) ?? candidates[0];
+  const offerStandard = () => {
+    if (!standardVoices.length || button.nextElementSibling?.dataset.action === "speak-standard") return;
+    button.insertAdjacentHTML("afterend", '<button class="audio" type="button" data-action="speak-standard">Послушать обычный немецкий</button>');
+  };
+  if (!voice) {
+    status.textContent = voices.length
+      ? useStandard ? "Обычный немецкий голос недоступен."
+        : "Швейцарский голос на этом устройстве недоступен."
+      : "Голоса ещё не загрузились. Попробуй нажать «Слушать» ещё раз.";
+    if (!useStandard) offerStandard();
+    return;
+  }
+  const source = button.previousElementSibling;
+  const text = (source.dataset.speech ?? source.textContent).replace(/\s*·\s*/g, ". ").replace(/\s*\(Plural\)/g, "").trim();
+  const speech = new SpeechSynthesisUtterance(text);
+  speech.voice = voice;
+  speech.lang = useStandard ? "de-DE" : "de-CH";
+  speech.rate = 0.92;
+  activeSpeech = speech;
+  speech.onend = () => {
+    if (activeSpeech === speech) activeSpeech = null;
+  };
   speech.onerror = event => {
+    if (activeSpeech !== speech) return;
+    activeSpeech = null;
     if (event.error !== "canceled" && event.error !== "interrupted") {
-      status.textContent = "Не удалось воспроизвести запись. Проверь, доступен ли немецкий голос в настройках устройства.";
+      status.textContent = useStandard ? "Не удалось воспроизвести фразу. Попробуй ещё раз."
+        : "Швейцарский голос не воспроизвёл фразу. Попробуй ещё раз.";
+      if (!useStandard && button.isConnected) offerStandard();
     }
   };
   status.textContent = "";
-  synthesis.cancel();
+  if (synthesis.speaking || synthesis.pending) synthesis.cancel();
   synthesis.speak(speech);
 }
 
@@ -471,7 +496,7 @@ function theoryCards(items) {
       <div class="example">${germanWithHints(example)}${audioButton()}
       ${extra?.translation ? `<p class="muted">${escapeHTML(extra.translation)}</p>` : ""}
       ${note ? `<p>${escapeHTML(note)}</p>` : ""}</div>
-      ${table ? `<div class="grammar-wrap"><table class="grammar">
+      ${table ? `<div class="grammar-wrap" tabindex="0" role="region" aria-labelledby="topic-title-${index + 1}"><table class="grammar">
         <thead><tr>${table[0].map(cell => `<th scope="col">${escapeHTML(cell)}</th>`).join("")}</tr></thead>
         <tbody>${table.slice(1).map(([pronoun, ...forms]) => `
           <tr><th scope="row">${escapeHTML(pronoun)}</th>${forms.map(form => `<td>${escapeHTML(form)}</td>`).join("")}</tr>
@@ -965,6 +990,7 @@ elements.content.addEventListener("click", event => {
       break;
     }
     case "speak": speak(button); break;
+    case "speak-standard": speak(button.previousElementSibling, true); break;
     case "word-hint": toggleWordHint(button); break;
     case "read":
       saved.theory[view.lesson.id] = true;

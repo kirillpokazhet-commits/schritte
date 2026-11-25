@@ -44,10 +44,12 @@ if (courseLanguage === "uk") {
     if (phrase.startsWith("Повторить ") && /\d/u.test(phrase)) {
       return value.replace("Повторить ", "Повторити ");
     }
-    return value.split(/(\s*·\s*|\n\n)/u).map(part => {
-      const key = part.trim();
-      return lookup(key) ? part.replace(key, () => lookup(key)) : part;
-    }).join("");
+    if (phrase.startsWith("По расписанию: ")) {
+      const timing = phrase.slice("По расписанию: ".length).replace(/\.$/u, "");
+      return value.replace(phrase, () => `За розкладом: ${lookup(timing) ?? timing}.`);
+    }
+    const parts = value.split(/(\s*·\s*|\n\n)/u);
+    return parts.length > 1 ? parts.map(localize).join("") : value;
   }
 
   function localizeNode(node) {
