@@ -8,7 +8,7 @@
 
 ## Опубликовать на GitHub Pages
 
-1. Загрузите `index.html`, `style.css`, `course.js`, `app.js`, `language.js`, `ukrainian.js`, `apple-touch-icon.png`, `gruezi.mp3` и `.nojekyll` в корень репозитория. Папка `Book` содержит исходные материалы.
+1. Загрузите `index.html`, `style.css`, `course.js`, `app.js`, `language.js`, `ukrainian.js`, `apple-touch-icon.png`, `gruezi.mp3`, `.nojekyll` и папку `visuals` в корень репозитория. Папка `Book` содержит исходные материалы.
 2. В настройках репозитория откройте **Settings → Pages**, выберите **Deploy from a branch**, основную ветку и папку `/ (root)`.
 3. Нажмите **Save**. После публикации на этой странице появится ссылка на курс.
 

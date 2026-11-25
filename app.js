@@ -4,6 +4,7 @@ const elements = Object.fromEntries(
 );
 const labels = { practice: "Тренировка", grammar: "Грамматика", test: "Тест A1.1" };
 const dialogueTitle = "Практика · Уцнах";
+const lessonImages = { 1: "intro", 2: "family", 3: "bakery", 4: "apartment", 5: "station", 6: "leisure", 7: "school" };
 const day = 86_400_000;
 const minute = 60_000;
 const ratings = { again: "Снова", hard: "Трудно", good: "Хорошо", easy: "Легко" };
@@ -353,12 +354,21 @@ function renderNavigation() {
   elements.lessons.innerHTML = course.map((lesson, index) => {
     const { done, total } = progress[index];
     return `<a class="lesson" href="#${lesson.id}">
-      <span class="number">${String(lesson.id).padStart(2, "0")}</span>
+      ${lessonThumbnail(lesson.id)}
       <span class="lesson-info"><strong>${escapeHTML(lesson.title)}</strong></span>
       <small class="lesson-percent">${Math.round(done / total * 100)}%</small>
       <span class="menu-arrow" aria-hidden="true"></span>
     </a>`;
   }).join("");
+}
+
+function lessonPhoto(id, className, lazy = false) {
+  return `<img class="${className}" src="./visuals/${lessonImages[id]}.webp" alt="" width="720" height="480" decoding="async"${lazy ? ' loading="lazy"' : ""}>`;
+}
+
+function lessonThumbnail(id) {
+  return `<span class="lesson-photo">${lessonPhoto(id, "lesson-thumbnail", true)}
+    <span class="lesson-photo-number" aria-hidden="true">${String(id).padStart(2, "0")}</span></span>`;
 }
 
 function readRoute() {
@@ -421,9 +431,9 @@ function readRoute() {
       openSceneStep("start");
     } else {
       show("Маршрут", "", `
-        <ol class="scene-list" role="list">${uznachScenes.map((scene, index) => `
+        <ol class="scene-list scene-gallery" role="list">${uznachScenes.map(scene => `
           <li><a href="#uznach/${scene.id}">
-            <span class="number" aria-hidden="true">${String(index + 1).padStart(2, "0")}</span>
+            <img src="./visuals/${scene.id}.webp" alt="" width="720" height="480" decoding="async">
             <div><strong>${scene.title}</strong><p>${scene.goal}</p>
             ${saved.scenes[scene.id] ? "<small>Пройдено</small>" : ""}</div>
             <span class="menu-arrow" aria-hidden="true"></span>
@@ -594,6 +604,7 @@ function renderGuidedRoute() {
       <nav class="actions lesson-shortcuts" aria-label="Материалы урока">
         <a href="#${view.id}/theory">Все правила урока</a><a href="#${view.id}/practice">Дополнительная тренировка</a>
       </nav>
+      ${lessonPhoto(view.id, "lesson-cover")}
       <h3 class="lesson-steps-title">Шаги урока</h3>
       <ol class="scene-list" role="list">${requiredStages(view.id).map((item, index) => {
         const done = progress[item.id]?.answered === item.tasks.length;
@@ -856,7 +867,7 @@ function openPractice() {
     show("Тренировки всех лекций", "Выбери тему или реши все задания подряд.", `
       <div class="actions"><button class="primary" data-action="start">Все задания · ${questions.length}</button></div>
       <nav class="review-menu" aria-label="Тренировки по темам">${course.map(lesson => `
-        <a class="lesson" href="#${lesson.id}/practice"><span class="number">${String(lesson.id).padStart(2, "0")}</span>
+        <a class="lesson" href="#${lesson.id}/practice">${lessonThumbnail(lesson.id)}
         <span class="lesson-info"><strong>${escapeHTML(lesson.title)}</strong></span><span class="menu-arrow" aria-hidden="true"></span></a>`).join("")}</nav>`, true);
   } else if (test) {
     const best = saved.bestTest === null ? "" : ` Лучший результат — ${saved.bestTest} из ${questions.length}.`;

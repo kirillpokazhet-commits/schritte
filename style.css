@@ -58,14 +58,34 @@ h1 { font-size: clamp(2rem, 5vw, 3.55rem); line-height: 1.1; text-wrap: balance;
 .destination-main { background: var(--ink); color: white; }
 .destination-main small, .destination-main .menu-arrow { color: #e1e1e3; }
 .destination-main:hover { background: #303030; }
+.destination-with-icon { display: grid; grid-template-columns: 42px minmax(0, 1fr) auto; gap: 12px; }
+.mode-icon {
+  display: grid;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  border-radius: 10px;
+  background: #f4e7e9;
+  color: var(--accent-hover);
+}
+.destination-main .mode-icon { color: white; background: #383838; }
+.mode-icon::before {
+  content: "";
+  width: 24px;
+  height: 24px;
+  background: url("./visuals/navigation-icons.png") var(--icon-position, 0%) center / 500% 100% no-repeat;
+}
+.destination-main .mode-icon::before { filter: invert(1); }
+.mode-icon-repeat { --icon-position: 25%; }
+.mode-icon-grammar { --icon-position: 50%; }
+.mode-icon-practice { --icon-position: 75%; }
+.mode-icon-words { --icon-position: 100%; }
 .home-modes #learn-link { grid-column: 1 / -1; }
-.vocabulary-entry { border-block: 1px solid var(--line); }
-.vocabulary-entry .destination { min-height: 70px; padding-inline: 0; border-radius: 0; background: transparent; }
-.vocabulary-entry .destination:hover { background: var(--soft); }
 .lesson-start { margin-bottom: 12px; }
 .lesson-shortcuts { margin: 0 0 24px; gap: 8px 16px; }
 .lesson-shortcuts a { padding-block: 6px; text-decoration: underline; text-underline-offset: 3px; }
 .lesson-steps-title { margin-bottom: 8px; font-size: 1.1rem; }
+.lesson-cover { display: block; width: 100%; height: auto; aspect-ratio: 3 / 1; object-fit: cover; border-radius: var(--card-radius); margin: 0 0 20px; background: var(--soft); }
 .stage-heading { margin-bottom: 12px; }
 .stage-title { font-size: 1.1rem; font-weight: 700; }
 .stage-rule { padding: 14px 16px; margin-bottom: 14px; border-radius: var(--card-radius); background: var(--soft); line-height: 1.45; }
@@ -83,6 +103,8 @@ h1 { font-size: clamp(2rem, 5vw, 3.55rem); line-height: 1.1; text-wrap: balance;
 .scene-list a { display: grid; grid-template-columns: 1.6rem minmax(0, 1fr) 1.25rem; align-items: center; gap: clamp(10px, 3vw, 19px); min-height: 87px; padding: 18px clamp(8px, 2vw, 14px); border-radius: 10px; transition: color 180ms var(--ease), background-color 180ms var(--ease); }
 .scene-list a:hover { background: var(--soft); }
 .scene-list p { margin-top: 6px; color: var(--muted); line-height: 1.45; }
+.scene-gallery a { grid-template-columns: clamp(70px, 23vw, 150px) minmax(0, 1fr) 1.25rem; }
+.scene-gallery img { display: block; width: 100%; height: auto; aspect-ratio: 3 / 2; object-fit: cover; border-radius: 8px; background: var(--soft); }
 .menu-arrow { position: relative; display: block; justify-self: end; width: 16px; height: 12px; color: var(--muted); transition: color 180ms var(--ease), translate 180ms var(--ease); }
 .menu-arrow::before, .menu-arrow::after { content: ""; position: absolute; }
 .menu-arrow::before { left: 0; right: 1px; top: 50%; border-top: 1px solid currentColor; }
@@ -95,8 +117,11 @@ h1 { font-size: clamp(2rem, 5vw, 3.55rem); line-height: 1.1; text-wrap: balance;
 .error-rule details { margin-top: 8px; }
 .error-rule .example { border-left-color: #c8c8cc; }
 #lessons { border-bottom: 1px solid var(--line); }
-.lesson { display: grid; grid-template-columns: 29px minmax(0, 1fr) auto; align-items: center; gap: 10px; min-height: 64px; padding: 13px 8px; border-radius: 9px; box-shadow: inset 0 1px var(--line); transition: background-color 180ms var(--ease); }
-#lessons .lesson { grid-template-columns: 29px minmax(0, 1fr) auto 16px; }
+.lesson { display: grid; grid-template-columns: clamp(52px, 16vw, 88px) minmax(0, 1fr) auto; align-items: center; gap: 10px; min-height: 64px; padding: 13px 8px; border-radius: 9px; box-shadow: inset 0 1px var(--line); transition: background-color 180ms var(--ease); }
+#lessons .lesson { grid-template-columns: clamp(52px, 16vw, 88px) minmax(0, 1fr) auto 16px; }
+.lesson-thumbnail { display: block; width: 100%; height: auto; aspect-ratio: 3 / 2; object-fit: cover; border-radius: 7px; background: var(--soft); }
+.lesson-photo { position: relative; }
+.lesson-photo-number { position: absolute; inset: auto 4px 4px auto; padding: 1px 4px; border-radius: 3px; background: rgb(20 20 20 / 85%); color: white; font-size: .65rem; font-variant-numeric: tabular-nums; }
 .lesson:hover { background: var(--soft); }
 .number { font-size: .875rem; color: var(--muted); font-variant-numeric: tabular-nums; }
 .lesson-info { min-width: 0; display: grid; gap: 5px; }

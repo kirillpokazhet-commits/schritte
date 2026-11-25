@@ -9,11 +9,11 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap">
-<link rel="stylesheet" href="./style.css?v=separate-words">
+<link rel="stylesheet" href="./style.css?v=lesson-visuals">
 <script defer src="./ukrainian.js?v=learning-route"></script>
 <script defer src="./language.js?v=uk-reviewed"></script>
 <script defer src="./course.js?v=review-fixes"></script>
-<script defer src="./app.js?v=separate-words"></script>
+<script defer src="./app.js?v=lesson-visuals"></script>
 <body>
   <main class="layout">
     <div class="masthead">
@@ -26,29 +26,32 @@
     <header id="hero"></header>
     <div id="overview">
       <section class="home-modes" aria-label="Режимы занятий">
-        <a class="destination destination-main" id="learn-link" href="#1">
+        <a class="destination destination-main destination-with-icon" id="learn-link" href="#1">
+          <span class="mode-icon mode-icon-learn" aria-hidden="true"></span>
           <span><strong id="learn-label">Начать курс</strong><small id="learn-summary"></small></span>
           <span class="menu-arrow" aria-hidden="true"></span>
         </a>
-        <a class="destination" id="grammar-repeat" href="#repeat">
+        <a class="destination destination-with-icon" href="#words">
+          <span class="mode-icon mode-icon-words" aria-hidden="true"></span>
+          <span><strong>Учить слова</strong><small id="due-count"></small></span>
+          <span class="menu-arrow" aria-hidden="true"></span>
+        </a>
+        <a class="destination destination-with-icon" id="grammar-repeat" href="#repeat">
+          <span class="mode-icon mode-icon-repeat" aria-hidden="true"></span>
           <span><strong>Повторение</strong><small id="repeat-summary"></small></span>
           <span class="menu-arrow" aria-hidden="true"></span>
         </a>
-        <a class="destination" href="#final/grammar">
+        <a class="destination destination-with-icon" href="#final/grammar">
+          <span class="mode-icon mode-icon-grammar" aria-hidden="true"></span>
           <span><strong>Грамматика A1.1</strong><small>Правила, таблицы и примеры</small></span>
           <span class="menu-arrow" aria-hidden="true"></span>
         </a>
-        <a class="destination" href="#uznach">
+        <a class="destination destination-with-icon" href="#uznach">
+          <span class="mode-icon mode-icon-practice" aria-hidden="true"></span>
           <span><strong>Практика · Уцнах</strong><small id="uznach-count">Три разговора на немецком</small></span>
           <span class="menu-arrow" aria-hidden="true"></span>
         </a>
       </section>
-      <aside class="vocabulary-entry" aria-labelledby="vocabulary-heading">
-        <a class="destination" href="#words">
-          <span><strong id="vocabulary-heading">Учить слова</strong><small id="due-count"></small></span>
-          <span class="menu-arrow" aria-hidden="true"></span>
-        </a>
-      </aside>
       <div class="course-progress">
         <span>Прогресс курса</span><strong id="percent"></strong>
       </div>
@@ -56,7 +59,8 @@
         <h2 id="lesson-heading">Уроки</h2>
         <nav id="lessons" aria-label="Уроки"></nav>
       </section>
-      <a class="destination final-entry" href="#final">
+      <a class="destination destination-with-icon final-entry" href="#final">
+        <span class="mode-icon mode-icon-grammar" aria-hidden="true"></span>
         <span><strong>Итоги A1.1</strong><small id="final-summary">Тест, грамматика и повторение</small></span>
         <span class="menu-arrow" aria-hidden="true"></span>
       </a>
