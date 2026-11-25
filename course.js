@@ -143,7 +143,7 @@ const course = [
       ["Hast du keinen Hunger? — ___, ich habe Hunger.", "Doch", "Ты возражаешь на keinen: на самом деле есть хочется.", "choice", ["Doch","Nein","Bitte"]],
       ["Собери фразу «Сегодня идёт дождь». Начни с Heute.", "Heute regnet es", "После Heute ставим regnet, потом es.", "order", ["es", "Heute", "regnet"]],
       ["Выбери правильную форму глагола: Du ___ einen Salat.", "nimmst", "У nehmen с du форма nimmst.", "choice", ["nimmst","nehmst","nimmt"]],
-      ["Я люблю читать. (используй gern)", "Ich lese gern", "Gern после глагола передаёт «люблю делать»."],
+      ["Я люблю читать. (используй gern или gerne)", "Ich lese gern", "Gern после глагола передаёт «люблю делать»."],
       ["Выбери то, что услышишь.", "Sie fährt gern Velo", "Fährt — форма для er или sie. В Швейцарии Velo — велосипед.", "listen", ["Sie fährt gern Velo","Sie fährt gern Bus","Sie fährt gern Zug"]],
       ["Подставь правильный артикль: Wir haben ___ Saft. (У нас нет сока.)", "keinen", "Saft мужского рода и здесь стоит в Akkusativ.", "choice", ["kein", "keine", "keinen"]],
       ["Er ___ ein Buch. (Он читает книгу.)", "liest", "Lesen с er меняется на liest.", "choice", ["liest","lese","lest"]]
@@ -167,7 +167,7 @@ const course = [
       ["___ du morgen mitkommen? (Ты хочешь пойти с нами завтра?)", "Willst", "С du форма willst; в вопросе ставим её первой.", "choice", ["Willst","Will","Wollt"]],
       ["Собери фразу «Вчера я учил немецкий». Начни с Gestern.", "Gestern habe ich Deutsch gelernt", "Habe занимает второе место, gelernt — в конце.", "order", ["gelernt", "ich", "Gestern", "Deutsch", "habe"]],
       ["Выбери вспомогательный глагол: Ich ___ nach Hause gegangen.", "bin", "В Perfekt с gehen берём sein: ich bin gegangen.", "choice", ["bin","habe","ist"]],
-      ["Я сегодня не могу прийти. (начни с Ich kann)", "Ich kann heute nicht kommen", "Главный глагол kommen ставим в конец."],
+      ["Собери фразу «Я сегодня не могу прийти».", "Ich kann heute nicht kommen", "Главный глагол kommen ставим в конец."],
       ["Выбери то, что услышишь.", "Wir sind mit dem Bus gefahren", "Для поездки с fahren используется sein. С wir — sind.", "listen", ["Wir sind mit dem Bus gefahren","Wir sind mit dem Zug gefahren","Wir sind mit dem Auto gefahren"]],
       ["Какая форма от schreiben подходит для Perfekt?", "geschrieben", "Schreiben → geschrieben. Эту форму удобно запомнить целиком.", "choice", ["geschreibt", "geschrieben", "geschreiben"]],
       ["Bist du pünktlich ___? (Ты пришёл вовремя?)", "gekommen", "У kommen форма gekommen, её ставим в конец.", "choice", ["gekommen","gekommt","gekommenen"]]
@@ -893,6 +893,7 @@ const questionRules = new Map([
 ]);
 
 const acceptedTranslations = new Map([
+  [course[6].practice[4], ["Heute kann ich nicht kommen"]],
   [course[0].practice[4], ["Aus der Schweiz komme ich"]],
   [course[1].practice[4], ["Deutsch spricht meine Schwester"]],
   [course[5].practice[4], ["Ich lese gerne"]],
@@ -920,7 +921,7 @@ const uznachScenes = [
       },
       coffee: {
         line: "Möchten Sie Milch zum Kaffee?",
-        task: ["Собери фразу «Да, с молоком, пожалуйста».", "Ja mit Milch bitte", "Mit значит «с». В живой речи здесь достаточно короткого ответа: Ja, mit Milch, bitte.", "order", ["Milch", "bitte", "Ja", "mit"]],
+        task: ["Собери фразу «Да, с молоком, пожалуйста».", "Ja, mit Milch, bitte.", "Mit значит «с». В живой речи здесь достаточно короткого ответа: Ja, mit Milch, bitte.", "order", ["Milch,", "bitte.", "Ja,", "mit"]],
         next: "coffeePrice", rule: course[2].theory[3]
       },
       rollPrice: {
@@ -1693,6 +1694,166 @@ const wordGlosses = [
   ["zwölf", "двенадцать", "дванадцять"], ["halb", "половина", "половина"]
 ];
 
+for (const line of `
+das Bild|Was siehst du auf dem Bild?
+der Kurs|Der Kurs beginnt um acht Uhr.
+das Gespräch|Das Gespräch beginnt jetzt.
+die Frage|Ich habe eine Frage.
+das Wort|Ich kenne das Wort nicht.
+die Lektion|Die Lektion ist kurz.
+die Antwort|Ich weiss die Antwort.
+die Musik|Ich höre gern Musik.
+der Papa|Mein Papa kocht heute.
+die Visitenkarte|Hier ist meine Visitenkarte.
+der Familienname|Wie ist Ihr Familienname?
+die Stadt|Die Stadt ist schön.
+das Land|Polen ist ein Land in Europa.
+das E-Mail|Ich schreibe ein E-Mail.
+das Telefon|Wo ist das Telefon?
+der Ort|Der Ort liegt am See.
+die Anmeldung|Die Anmeldung ist am Montag.
+der Vater|Mein Vater wohnt in Bern.
+die Mutter|Meine Mutter arbeitet heute.
+der Lehrer|Der Lehrer erklärt das Wort.
+die Lehrerin|Die Lehrerin kommt gleich.
+der Park|Wir gehen in den Park.
+das Jahr|Das Jahr hat zwölf Monate.
+der Enkel|Mein Enkel ist drei Jahre alt.
+die Enkelin|Meine Enkelin geht in die Schule.
+die Grossmutter|Meine Grossmutter wohnt in Basel.
+der Mann|Der Mann heisst Paul.
+der Grossvater|Mein Grossvater liest gern.
+der Ehemann|Ihr Ehemann kommt aus Italien.
+die Ehefrau|Seine Ehefrau spricht Deutsch.
+die Nummer|Wie ist deine Nummer?
+das Heimatland|Mein Heimatland ist die Schweiz.
+der Fluss|Der Fluss ist breit.
+der Berg|Der Berg ist hoch.
+der See|Wir wohnen am See.
+die Schweizerin|Meine Nachbarin ist Schweizerin.
+die Birne|Die Birne ist reif.
+das Brötchen|Ich möchte ein Brötchen.
+die Flasche|Ich brauche eine Flasche Wasser.
+die Banane|Die Banane kostet einen Franken.
+die Crêpe|Ich esse eine Crêpe mit Zucker.
+die Schokolade|Ich mag Schokolade.
+das Fleisch|Wir kaufen heute kein Fleisch.
+das Bier|Ein Bier, bitte.
+der Tee|Der Tee ist heiss.
+das Brot|Das Brot kostet drei Franken.
+der Wein|Möchten Sie Wein oder Wasser?
+das Mineralwasser|Ein Mineralwasser, bitte.
+der Fisch|Der Fisch ist frisch.
+die Orange|Ich nehme zwei Orangen.
+der Kuchen|Der Kuchen schmeckt gut.
+der Kaffee|Der Kaffee kostet vier Franken.
+der Saft|Ich trinke gern Saft.
+das Würstchen|Das Kind isst ein Würstchen.
+die Kartoffel|Die Kartoffeln sind im Angebot.
+die Zwiebel|Ich brauche eine Zwiebel für die Suppe.
+das Regal|Die Äpfel liegen im Regal.
+der Prospekt|Die Angebote stehen im Prospekt.
+das Lebensmittel|Brot ist ein Lebensmittel.
+das Hackfleisch|Ich brauche ein halbes Kilo Hackfleisch.
+der Verkäufer|Der Verkäufer hilft mir.
+die Verkäuferin|Die Verkäuferin zeigt mir das Brot.
+die Kundin|Die Kundin kauft Milch.
+der Laden|Der Laden ist bis sechs Uhr geöffnet.
+die Frucht|Die Mango ist eine Frucht.
+das Rezept|Das Rezept ist einfach.
+der Pfeffer|Die Suppe braucht noch Pfeffer.
+die Kiwi|Die Kiwi ist grün.
+der Stuhl|Der Stuhl steht am Tisch.
+der Kühlschrank|Die Milch ist im Kühlschrank.
+das Schlafzimmer|Das Schlafzimmer ist klein.
+der Gang|Die Tür ist am Ende des Gangs.
+die Toilette|Wo ist die Toilette?
+das Wohnzimmer|Das Wohnzimmer ist hell.
+das Haus|Das Haus hat einen Garten.
+der Schrank|Der Schrank ist alt.
+das Bett|Das Bett ist breit.
+der Fernseher|Der Fernseher steht im Wohnzimmer.
+die Dusche|Das Bad hat eine Dusche.
+der Herd|Der Herd steht in der Küche.
+die Badewanne|Die Wohnung hat keine Badewanne.
+der Teppich|Der Teppich liegt unter dem Tisch.
+der Sessel|Der Sessel ist bequem.
+das Gerät|Das Gerät funktioniert gut.
+die Farbe|Welche Farbe hat das Sofa?
+das Handy|Mein Handy liegt auf dem Tisch.
+das Büro|Das Büro ist im ersten Stock.
+das Ehepaar|Das Ehepaar wohnt in Basel.
+der Garten|Die Kinder spielen im Garten.
+das Appartement|Das Appartement hat zwei Zimmer.
+der Raum|Der Raum ist gross.
+der TV|Der TV steht im Wohnzimmer.
+die Garage|Das Auto steht in der Garage.
+der Computer|Der Computer steht auf dem Schreibtisch.
+der Schreibtisch|Der Schreibtisch steht am Fenster.
+die Uhr|Die Uhr hängt an der Wand.
+die Präsentation|Die Präsentation beginnt um zehn Uhr.
+der Supermarkt|Der Supermarkt öffnet um acht Uhr.
+das Viertel|Eine Stunde hat vier Viertel.
+der Intensivkurs|Der Intensivkurs beginnt am Montag.
+die Party|Die Party beginnt um acht Uhr.
+der Fussball|Wir spielen jeden Samstag Fussball.
+die Hausaufgabe|Ich mache die Hausaufgabe am Abend.
+die Mama|Meine Mama steht früh auf.
+das Kino|Wir gehen heute ins Kino.
+der Sport|Ich mache gern Sport.
+die Pizza|Wir essen am Abend Pizza.
+das Geschäft|Das Geschäft ist sonntags geschlossen.
+die Praxis|Die Praxis ist von acht bis zwölf Uhr geöffnet.
+die Kita|Mein Sohn geht in die Kita.
+das Beispiel|Kannst du ein Beispiel nennen?
+der Freund|Mein Freund kommt um neun Uhr.
+die Freundin|Ich treffe meine Freundin am Samstag.
+die Sonne|Heute scheint die Sonne.
+das Auto|Wir fahren mit dem Auto.
+das Picknick|Wir machen am Sonntag ein Picknick.
+die Gitarre|Meine Schwester spielt Gitarre.
+die Wolke|Am Himmel ist nur eine Wolke.
+das Wienerli|Ich nehme ein Wienerli.
+die Nachricht|Ich habe eine Nachricht für dich.
+das Radio|Am Morgen höre ich Radio.
+das Internet|Ich suche das Rezept im Internet.
+der Hamburger|Ich bestelle einen Hamburger.
+die Speise|Welche Speise empfehlen Sie?
+die Bratwurst|Ich möchte eine Bratwurst.
+die Portion|Eine Portion Pommes, bitte.
+der Ketchup|Möchtest du Ketchup zu den Pommes?
+das Sandwich|Ich nehme ein Sandwich.
+der Schinken|Das Sandwich ist mit Schinken.
+der Salat|Ich nehme einen Salat.
+das Getränk|Welches Getränk möchten Sie?
+das Cola|Ich möchte ein Cola.
+der Hund|Wir gehen mit dem Hund spazieren.
+das Fahrrad|Ich komme mit dem Fahrrad.
+der Krimi|Wir sehen heute Abend einen Krimi.
+der Film|Der Film beginnt um acht Uhr.
+der Beruf|Was sind Sie von Beruf?
+das Foto|Auf dem Foto ist meine Familie.
+das Smartphone|Ich mache ein Foto mit dem Smartphone.
+der Würfel|Du brauchst einen Würfel für das Spiel.
+das Spiel|Das Spiel ist lustig.
+das Team|Unser Team spielt am Samstag.
+das Frühstück|Das Frühstück ist um sieben Uhr.
+der Arzt|Der Arzt kommt um zehn Uhr.
+die Ärztin|Ich habe einen Termin bei der Ärztin.
+das Klavier|Mein Bruder spielt Klavier.
+das Lied|Wir singen ein Lied.
+der Text|Lies bitte den Text.
+die Übung|Wir machen die Übung zusammen.
+der Brief|Ich habe einen Brief geschrieben.
+das Buch|Ich lese ein Buch.
+die Klasse|In meiner Klasse sind zwanzig Kinder.
+der Schüler|Der Schüler hat die Aufgabe gemacht.
+die Primarschule|Meine Tochter geht in die Primarschule.
+`.trim().split("\n")) {
+  const [word, example] = line.split("|");
+  wordExamples.set(word, example);
+}
+
 function cardExample(word, lessonId) {
   if (word === "machen" && lessonId === 3) return "Das macht zusammen fünf Franken.";
   if (word === "alt" && lessonId === 4) return "Der Schrank ist alt.";
@@ -1700,10 +1861,8 @@ function cardExample(word, lessonId) {
   if (wordExamples.has(word)) return wordExamples.get(word);
   if (countries.has(word)) return `Meine Freundin kommt aus ${word}.`;
   if (languages.has(word)) return `Wir sprechen ${word}.`;
-  const subject = word[0].toUpperCase() + word.slice(1);
-  if (lessonId === 3) return `${subject} ist im Angebot.`;
-  if (lessonId === 5 && /^der (Montag|Dienstag|Mittwoch|Donnerstag|Freitag|Samstag|Sonntag)$/.test(word)) {
+  if (/^der (Montag|Dienstag|Mittwoch|Donnerstag|Freitag|Samstag|Sonntag)$/.test(word)) {
     return `Am ${word.slice(4)} habe ich Zeit.`;
   }
-  return `${subject} ist hier.`;
+  return "";
 }

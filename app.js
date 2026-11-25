@@ -2,7 +2,7 @@ const elements = Object.fromEntries(
   ["overview", "lesson-view", "lessons", "percent", "due-count", "hero", "sections", "content", "storage-message", "audio-status"]
     .map(id => [id, document.getElementById(id)])
 );
-const labels = { learn: "Занятие", theory: "Теория", practice: "Тренировка", grammar: "Грамматика", test: "Тест A1.1" };
+const labels = { practice: "Тренировка", grammar: "Грамматика", test: "Тест A1.1" };
 const dialogueTitle = "Практика · Уцнах";
 const day = 86_400_000;
 const minute = 60_000;
@@ -98,7 +98,8 @@ function parseBackup(contents) {
     throw new Error("Неверный прогресс занятия");
   }
   return { theory: progress.theory, practice: progress.practice, cards: mergeCardSchedules(cards), bestTest: progress.bestTest, scenes,
-    guided: { ...guided, 7: guided[7] ?? progress.school ?? {} } };
+    guided: { ...guided, 7: guided[7] ?? progress.school ?? {} },
+    resume: resumeStage(progress.resume) ? progress.resume : null };
 }
 
 function validStageProgress(steps, route) {
@@ -222,37 +223,43 @@ document.addEventListener("keydown", event => {
 });
 
 let activeSpeech;
-function speak(button, useStandard = false) {
+let activeRecording;
+function speak(button) {
   const status = document.getElementById("audio-status");
+  const source = button.previousElementSibling;
+  const text = (source.dataset.speech ?? source.textContent).replace(/\s*·\s*/g, ". ").replace(/\s*\(Plural\)/g, "").trim();
   const synthesis = window.speechSynthesis;
+  activeRecording?.pause();
+  activeRecording = null;
+  activeSpeech = null;
+  if (synthesis?.speaking || synthesis?.pending) synthesis.cancel();
+  status.textContent = "";
+  if (/^grüezi[.!]?$/iu.test(text)) {
+    const recording = new Audio("./gruezi.mp3");
+    activeRecording = recording;
+    recording.play().catch(() => {
+      if (activeRecording !== recording) return;
+      activeRecording = null;
+      status.textContent = "Не удалось воспроизвести фразу. Попробуй ещё раз.";
+    });
+    return;
+  }
   if (!synthesis || !window.SpeechSynthesisUtterance) {
     status.textContent = "Озвучка недоступна в этом браузере.";
     return;
   }
   const voices = synthesis.getVoices();
-  const swissVoices = voices.filter(item => item.lang.toLowerCase().replace(/_/g, "-") === "de-ch");
-  const standardVoices = voices.filter(item => /^de[-_]de$/i.test(item.lang));
-  const candidates = useStandard ? standardVoices : swissVoices;
+  const candidates = voices.filter(item => /^de(?:[-_]de)?$/i.test(item.lang));
   const voice = candidates.find(item => /premium|enhanced|neural/i.test(item.name))
     ?? candidates.find(item => item.default) ?? candidates[0];
-  const offerStandard = () => {
-    if (!standardVoices.length || button.nextElementSibling?.dataset.action === "speak-standard") return;
-    button.insertAdjacentHTML("afterend", '<button class="audio" type="button" data-action="speak-standard">Послушать обычный немецкий</button>');
-  };
-  if (!voice) {
-    status.textContent = voices.length
-      ? useStandard ? "Обычный немецкий голос недоступен."
-        : "Швейцарский голос на этом устройстве недоступен."
-      : "Голоса ещё не загрузились. Попробуй нажать «Слушать» ещё раз.";
-    if (!useStandard) offerStandard();
+  if (!voice && voices.length) {
+    status.textContent = "Обычный немецкий голос недоступен.";
     return;
   }
-  const source = button.previousElementSibling;
-  const text = (source.dataset.speech ?? source.textContent).replace(/\s*·\s*/g, ". ").replace(/\s*\(Plural\)/g, "").trim();
   const speech = new SpeechSynthesisUtterance(text);
-  speech.voice = voice;
-  speech.lang = useStandard ? "de-DE" : "de-CH";
-  speech.rate = 0.92;
+  if (voice) speech.voice = voice;
+  speech.lang = "de-DE";
+  speech.rate = 1;
   activeSpeech = speech;
   speech.onend = () => {
     if (activeSpeech === speech) activeSpeech = null;
@@ -261,13 +268,9 @@ function speak(button, useStandard = false) {
     if (activeSpeech !== speech) return;
     activeSpeech = null;
     if (event.error !== "canceled" && event.error !== "interrupted") {
-      status.textContent = useStandard ? "Не удалось воспроизвести фразу. Попробуй ещё раз."
-        : "Швейцарский голос не воспроизвёл фразу. Попробуй ещё раз.";
-      if (!useStandard && button.isConnected) offerStandard();
+      status.textContent = "Не удалось воспроизвести фразу. Попробуй ещё раз.";
     }
   };
-  status.textContent = "";
-  if (synthesis.speaking || synthesis.pending) synthesis.cancel();
   synthesis.speak(speech);
 }
 
@@ -303,13 +306,17 @@ function mergeCardSchedules(cards) {
 }
 
 function lessonProgress(lesson) {
-  const route = lessonRoutes[lesson.id].filter(stage => stage.id !== "repeat");
+  const route = requiredStages(lesson.id);
   const progress = guidedProgress(lesson.id);
   const guidedDone = route.reduce((sum, stage) => sum + (progress[stage.id]?.answered ?? 0), 0);
   const guidedTotal = route.reduce((sum, stage) => sum + stage.tasks.length, 0);
-  const score = saved.practice[lesson.id] ?? 0;
-  const total = 1 + guidedTotal + lesson.practice.length;
-  return { done: Number(Boolean(saved.theory[lesson.id])) + guidedDone + score, total };
+  return { done: guidedDone, total: guidedTotal };
+}
+
+function scheduledLessons() {
+  return course.map(lesson => ({ lesson, due: guidedProgress(lesson.id).repeat?.due }))
+    .filter(item => item.due && Number.isFinite(new Date(item.due).getTime()))
+    .sort((first, second) => first.due - second.due);
 }
 
 function renderNavigation() {
@@ -320,18 +327,24 @@ function renderNavigation() {
   elements.percent.textContent = new Intl.NumberFormat(courseLanguage, { style: "percent", maximumFractionDigits: 1 }).format(count / max);
   elements["due-count"].textContent = due ? `К повторению: ${due}` : "Колода всех лекций";
   if (!view.home) return;
-  const current = course.find(lesson => nextGuidedStage(lesson.id));
-  const upcoming = current && nextGuidedStage(current.id);
-  document.getElementById("learn-link").href = upcoming ? `#${current.id}/learn/${upcoming.id}` : "#final/test";
-  document.getElementById("learn-summary").textContent = upcoming ? `${current.title} · ${upcoming.title}` : "Все занятия пройдены · итоговый тест";
-  const dueLessons = course.filter(lesson => {
-    const deadline = guidedProgress(lesson.id).repeat?.due;
-    return deadline && deadline <= Date.now();
-  });
-  const repeatLink = document.getElementById("grammar-repeat");
-  repeatLink.href = dueLessons.length ? `#${dueLessons[0].id}/learn/repeat` : "#final/practice";
-  document.getElementById("repeat-summary").textContent = dueLessons.length
-    ? `К повторению: ${dueLessons.length} · ${dueLessons[0].title}` : "Смешанная практика по урокам";
+  const resumed = resumeStage(saved.resume);
+  const interrupted = resumed && course.find(lesson => lesson.id === saved.resume.lessonId && nextGuidedStage(lesson.id));
+  const current = interrupted ?? course.find(lesson => nextGuidedStage(lesson.id));
+  const upcoming = current && (interrupted && guidedProgress(current.id)[resumed.id]?.answered !== resumed.tasks.length
+    ? resumed : nextGuidedStage(current.id));
+  const continuing = interrupted || (current && lessonProgress(current).done > 0);
+  document.getElementById("learn-link").href = upcoming
+    ? continuing ? `#${current.id}/learn/${upcoming.id}` : `#${current.id}`
+    : "#final/test";
+  document.getElementById("learn-label").textContent = upcoming
+    ? continuing ? "Продолжить урок" : count ? "Начать следующий урок" : "Начать курс"
+    : "Перейти к итоговому тесту";
+  document.getElementById("learn-summary").textContent = upcoming
+    ? continuing ? `${current.title} · ${upcoming.title}` : `${current.title} · ${lessonRoutes[current.id].find(stage => stage.id === "call").title}`
+    : "Все уроки пройдены";
+  const dueCount = scheduledLessons().filter(item => item.due <= Date.now()).length;
+  document.getElementById("repeat-summary").textContent = dueCount
+    ? `К повторению: ${dueCount}` : "На сегодня заданий нет";
   const completedScenes = uznachScenes.filter(scene => saved.scenes[scene.id]).length;
   document.getElementById("uznach-count").textContent =
     completedScenes ? `Сцены пройдены: ${completedScenes} из ${uznachScenes.length}` : "Три разговора на немецком";
@@ -357,7 +370,8 @@ function readRoute() {
   const final = id === "final" && !globalWords;
   const finalHub = final && !["practice", "grammar", "test"].includes(section);
   const uznach = id === "uznach";
-  const home = !final && !lesson && !uznach && !globalWords;
+  const repeat = id === "repeat";
+  const home = !final && !lesson && !uznach && !globalWords && !repeat;
   const tabs = final ? ["practice", "grammar", "test"] : ["learn", "theory", "practice"];
   view = {
     id: globalWords ? "words" : final ? "final" : lesson ? String(lesson.id) : "home",
@@ -367,7 +381,7 @@ function readRoute() {
   elements.overview.hidden = !home;
   elements.hero.classList.toggle("home-hero", home);
   elements["lesson-view"].hidden = home;
-  elements.sections.hidden = uznach || globalWords || finalHub;
+  elements.sections.hidden = !final || finalHub;
   elements["audio-status"].textContent = "";
   study = null;
   renderNavigation();
@@ -378,6 +392,11 @@ function readRoute() {
   if (globalWords) {
     elements.hero.innerHTML = '<a class="home-link" href="#home">Главная</a><h1 id="section-title">Учить слова</h1>';
     openWords();
+    return;
+  }
+  if (repeat) {
+    elements.hero.innerHTML = '<a class="home-link" href="#home">Главная</a><h1>Повторение</h1>';
+    renderRepeatQueue();
     return;
   }
   if (finalHub) {
@@ -413,15 +432,16 @@ function readRoute() {
     return;
   }
   elements.hero.innerHTML = `
-    <a class="home-link" href="${final ? "#final" : "#home"}">${final ? "Итоги A1.1" : "Главная"}</a>
+    <a class="home-link" href="${final ? "#final" : view.section === "learn" ? "#home" : `#${view.id}`}">${final ? "Итоги A1.1" : view.section === "learn" ? "Главная" : "К уроку"}</a>
     ${final ? "" : `<p class="page-context" lang="de">Lektion ${lesson.id}</p>`}
     <h1>${final ? { practice: "Повторить упражнения", grammar: "Шпаргалка по грамматике", test: "Итоговый тест" }[view.section] : escapeHTML(lesson.title)}</h1>`;
-  elements.sections.innerHTML = tabs.map(tab => `
-    <a href="#${view.id}/${tab}" ${view.section === tab ? 'aria-current="page"' : ""}>${labels[tab]}</a>`).join("");
+  elements.sections.innerHTML = final ? tabs.map(tab => `
+    <a href="#${view.id}/${tab}" ${view.section === tab ? 'aria-current="page"' : ""}>${labels[tab]}</a>`).join("")
+    : "";
   if (view.section === "theory") renderTheory();
   if (view.section === "learn") renderGuidedRoute();
   if (view.section === "grammar") {
-    const byLesson = `<details class="theory-index"><summary>Полная грамматика по урокам</summary>
+    const byLesson = `<details class="theory-index" open><summary>Полная грамматика по урокам</summary>
       <nav aria-label="Грамматика по урокам"><ul>${course.map(item =>
         `<li><a href="#${item.id}/theory">${escapeHTML(item.title)}</a></li>`).join("")}</ul></nav></details>`;
     show("Грамматика A1.1", "Правила по урокам и краткое повторение перед тестом",
@@ -518,8 +538,7 @@ function renderTheory() {
     ${theoryIndex(topics, `#${view.id}/theory`)}
     ${theoryCards(topics)}
     <div class="actions">
-      <button class="primary" data-action="read">${saved.theory[lesson.id] ? "Прочитано ✓" : "Отметить прочитанным"}</button>
-      <a class="button" href="#${view.id}/practice">К тренировке</a>
+      <a class="button" href="#${view.id}">К уроку</a>
     </div>`;
 }
 
@@ -527,9 +546,33 @@ function guidedProgress(id) {
   return saved.guided?.[id] ?? (String(id) === "7" ? saved.school : null) ?? {};
 }
 
+function requiredStages(id) {
+  return lessonRoutes[id].filter(stage => stage.id !== "repeat");
+}
+
+function resumeStage(resume) {
+  if (!course.some(lesson => lesson.id === resume?.lessonId)) return null;
+  return requiredStages(resume.lessonId).find(stage => stage.id === resume.stageId);
+}
+
 function nextGuidedStage(id) {
   const progress = guidedProgress(id);
-  return lessonRoutes[id].find(stage => stage.id !== "repeat" && (progress[stage.id]?.answered ?? 0) < stage.tasks.length);
+  return requiredStages(id).find(stage => (progress[stage.id]?.answered ?? 0) < stage.tasks.length);
+}
+
+function renderRepeatQueue() {
+  const scheduled = scheduledLessons();
+  const due = scheduled.filter(item => item.due <= Date.now());
+  const next = scheduled.find(item => item.due > Date.now());
+  const nextDate = next && new Intl.DateTimeFormat(courseLanguage, { dateStyle: "long" }).format(next.due);
+  show(due.length ? "На сегодня" : "На сегодня заданий нет", "", `
+    ${due.length ? `<ul class="scene-list" role="list">${due.map(({ lesson }) => `
+      <li><a href="#${lesson.id}/learn/repeat">
+        <span class="number" aria-hidden="true">${lesson.id}</span>
+        <strong>${escapeHTML(lesson.title)}</strong><span class="menu-arrow" aria-hidden="true"></span>
+      </a></li>`).join("")}</ul>` : ""}
+    ${nextDate ? `<p class="repeat-date"><span>Ближайшее повторение</span> · <time datetime="${new Date(next.due).toISOString()}">${nextDate}</time></p>` : ""}
+    <div class="actions"><a class="button" href="#final/practice">Свободная практика</a></div>`);
 }
 
 function renderGuidedRoute() {
@@ -540,31 +583,46 @@ function renderGuidedRoute() {
   const due = progress.repeat?.due;
   const base = `#${view.id}/learn`;
   if (!stage) {
-    show("Занятие", route.find(item => item.id === "call").description, `
-      <ol class="scene-list" role="list">${route.map((item, index) => {
+    const started = requiredStages(view.id).some(item => progress[item.id]?.answered) || saved.resume?.lessonId === Number(view.id);
+    const last = saved.resume?.lessonId === Number(view.id) && resumeStage(saved.resume);
+    const next = last && (progress[last.id]?.answered ?? 0) < last.tasks.length ? last : upcoming;
+    show(upcoming ? "Цель урока" : "Урок пройден", route.find(item => item.id === "call").description, `
+      <div class="actions lesson-start">
+        ${next ? `<a class="button primary" href="${base}/${next.id}">${started ? "Продолжить урок" : "Начать урок"}</a>`
+          : `<a class="button primary" href="${Number(view.id) < course.length ? `#${Number(view.id) + 1}` : "#final/test"}">${Number(view.id) < course.length ? "Следующий урок" : "Перейти к итоговому тесту"}</a>`}
+      </div>
+      <nav class="actions lesson-shortcuts" aria-label="Материалы урока">
+        <a href="#${view.id}/theory">Все правила урока</a><a href="#${view.id}/practice">Дополнительная тренировка</a>
+      </nav>
+      <h3 class="lesson-steps-title">Шаги урока</h3>
+      <ol class="scene-list" role="list">${requiredStages(view.id).map((item, index) => {
         const done = progress[item.id]?.answered === item.tasks.length;
-        const status = item.id === "repeat" && due ? (due <= Date.now() ? "Пора повторить" : `Повторить ${formatReviewDelay(due - Date.now())}`)
-          : done ? "Пройдено" : item === upcoming ? "Следующий шаг" : "";
+        const status = done ? "Пройдено" : item === next ? "Следующий шаг" : "";
         return `<li><a href="${base}/${item.id}">
           <span class="number" aria-hidden="true">${index + 1}</span>
           <div><strong>${item.title}</strong><p>${item.description}</p>${status ? `<small>${status}</small>` : ""}</div>
           <span class="menu-arrow" aria-hidden="true"></span>
         </a></li>`;
-      }).join("")}</ol>`);
+      }).join("")}</ol>
+      ${due ? `<div class="actions"><a class="button" href="#repeat">${due <= Date.now() ? "Пора повторить" : "Расписание повторений"}</a></div>` : ""}`);
     return;
   }
   const answered = progress[stage.id]?.answered ?? 0;
-  if (answered > 0 && answered < stage.tasks.length) {
-    startGuidedStage(stage, answered);
+  if (answered < stage.tasks.length || stage.id === "repeat") {
+    startGuidedStage(stage, answered === stage.tasks.length ? 0 : answered);
     return;
   }
   show(stage.title, stage.description, `
     <p><a class="home-link" href="${base}">Все шаги урока</a></p>
-    ${stage.theory ? theoryCards(stage.theory) : ""}
-    <div class="actions"><button class="primary" data-action="start-guided">${answered ? "Пройти ещё раз" : "Начать задания"}</button></div>`);
+    <div class="actions"><button class="primary" data-action="start-guided">Пройти ещё раз</button></div>`);
 }
 
 function startGuidedStage(stage, index = 0) {
+  if (stage.id !== "repeat" && (guidedProgress(view.id)[stage.id]?.answered ?? 0) < stage.tasks.length &&
+      (saved.resume?.lessonId !== Number(view.id) || saved.resume.stageId !== stage.id)) {
+    saved.resume = { lessonId: Number(view.id), stageId: stage.id };
+    persist();
+  }
   study = { stage, questions: stage.tasks, answers: [], index, order: [], streak: 0, bestStreak: 0 };
   renderQuestion();
 }
@@ -582,7 +640,7 @@ function advanceGuidedStage() {
   const previous = progress[stage.id];
   study.index++;
   progress[stage.id] = { answered: Math.max(previous?.answered ?? 0, study.index), due: previous?.due ?? 0 };
-  if (stage.id === "call" && study.index === stage.tasks.length && !progress.repeat?.due) {
+  if (stage.id === "call" && study.index === stage.tasks.length) {
     progress.repeat = { answered: progress.repeat?.answered ?? 0, due: Date.now() + 2 * day };
   }
   if (stage.id === "repeat" && study.index === stage.tasks.length) progress.repeat.due = Date.now() + 2 * day;
@@ -594,12 +652,17 @@ function advanceGuidedStage() {
     renderQuestion();
     return;
   }
-  const route = lessonRoutes[view.id];
-  const next = route[route.indexOf(stage) + 1];
   const base = `#${view.id}/learn`;
-  show("Шаг пройден", stage.id === "call" ? "Следующее повторение появится на главной через два дня." : "", `
-    <div class="actions">${next ? `<a class="button primary" href="${base}/${next.id}">${next.id === "repeat" ? "Повторить сейчас" : next.title}</a>` : ""}
-      ${stage.id === "call" && Number(view.id) < course.length ? `<a class="button" href="#${Number(view.id) + 1}/learn">Следующий урок</a>` : ""}
+  const next = nextGuidedStage(view.id);
+  const lessonComplete = !next;
+  const nextLesson = Number(view.id) < course.length;
+  const repeat = stage.id === "repeat";
+  const primary = repeat ? ["#repeat", "К списку повторений"]
+    : lessonComplete ? [nextLesson ? `#${Number(view.id) + 1}` : "#final/test", nextLesson ? "Следующий урок" : "Перейти к итоговому тесту"]
+    : [`${base}/${next.id}`, "Следующий шаг"];
+  show(repeat ? "Повторение пройдено" : lessonComplete ? "Урок пройден" : "Шаг пройден",
+    stage.id === "call" || repeat ? "Следующее повторение через два дня." : "", `
+    <div class="actions"><a class="button primary" href="${primary[0]}">${primary[1]}</a>
       <a class="button" href="${base}">Все шаги урока</a></div>`);
 }
 
@@ -692,7 +755,7 @@ function renderWords() {
           <span class="card-face card-back" id="card-back" aria-hidden="true">
             <small lang="de-CH">${escapeHTML(card.front)}</small>
             <strong class="translation">${escapeHTML(card.translation)}</strong>
-            <span class="card-example" lang="de-CH">${escapeHTML(example)}</span>
+            ${example ? `<span class="card-example" lang="de-CH">${escapeHTML(example)}</span>` : ""}
             ${card.plural ? `<small lang="de-CH">${escapeHTML(card.plural)}</small>` : ""}
           </span>
         </span>
@@ -731,7 +794,7 @@ function showCardSide(button) {
   button.querySelector(".card-front").setAttribute("aria-hidden", String(study.flipped));
   button.querySelector(".card-back").setAttribute("aria-hidden", String(!study.flipped));
   const card = study.queue[0];
-  document.getElementById("card-audio-text").textContent = study.flipped ? cardExample(card.front, card.lessonId) : card.front;
+  document.getElementById("card-audio-text").textContent = (study.flipped && cardExample(card.front, card.lessonId)) || card.front;
 }
 
 async function flipCard(button) {
@@ -806,15 +869,49 @@ function openPractice() {
 
 function questionOptions(question) {
   const [, answer, , type = "translate", options] = question;
-  if (type === "translate") return { type: "order", options: answer.split(/\s+/u) };
+  if (type === "translate") {
+    const words = answer.split(/\s+/u);
+    const lengths = new Set([words.length]);
+    const available = new Map();
+    for (const word of words) {
+      const key = normalize(word);
+      available.set(key, (available.get(key) ?? 0) + 1);
+    }
+    for (const variant of acceptedTranslations.get(question) ?? []) {
+      const tokens = variant.split(/\s+/u);
+      lengths.add(tokens.length);
+      const needed = new Map();
+      for (const token of tokens) {
+        const key = normalize(token);
+        const occurrences = (needed.get(key) ?? 0) + 1;
+        needed.set(key, occurrences);
+        if (occurrences <= (available.get(key) ?? 0)) continue;
+        words.push(token);
+        available.set(key, occurrences);
+      }
+    }
+    return { type: "order", options: words, lengths };
+  }
+  if (type === "order") return { type, options, lengths: new Set([options.length]) };
   return { type: type === "listen" ? "choice" : type, options };
+}
+
+function guidedRule(question, stage, index) {
+  if (!stage.theory) return null;
+  if (stage === schoolRoute[1]) return stage.theory[index === 1 || index === 2 ? 0 : 1];
+  if (stage === schoolRoute[2]) return stage.theory[[1, 2, 0, 0][index]];
+  return questionRules.get(question) ?? stage.theory[0];
+}
+
+function answerLanguage(value) {
+  return /[А-Яа-яЁё]/u.test(value) ? courseLanguage : "de-CH";
 }
 
 function renderQuestion() {
   const { test, questions, index, feedback } = study;
   const question = questions[index];
   const [prompt, answer, , sourceType, , context] = question;
-  const { type, options } = questionOptions(question);
+  const { type, options, lengths } = questionOptions(question);
   if (!study.optionOrder) {
     study.optionOrder = shuffle(options.map((_, index) => index));
     if (type === "order" && checkAnswer(question, study.optionOrder.map(position => options[position]).join(" ")).correct) {
@@ -823,21 +920,28 @@ function renderQuestion() {
     }
   }
   const scene = study.scene;
+  const stage = study.stage;
+  const step = stage && requiredStages(view.id).indexOf(stage);
+  const rule = stage && guidedRule(question, stage, index);
+  const previousRule = document.getElementById("guided-rule");
+  const ruleOpen = previousRule?.open && previousRule.dataset.question === String(index);
   const displayedAnswer = feedback?.answer && feedback.correct ? feedback.answer : answer;
-  const ready = type === "order" && study.order.length === options.length;
+  const ready = type === "order" && lengths.has(study.order.length);
   const submit = `<div class="actions"><button class="exercise-button" type="submit" ${ready ? "" : "disabled"}>${test ? "Далее" : "Проверить"}</button></div>`;
   const audio = sourceType === "listen"
     ? `<div class="actions"><span hidden lang="de-CH">${escapeHTML(answer)}</span>${audioButton()}</div>
-      <details class="dictation-help"><summary>Показать текст, если звук недоступен</summary>
-        <p lang="de-CH">${escapeHTML(answer)}</p></details>` : "";
+      ${test ? '<button class="audio" type="button" data-action="skip-listening">Пропустить задание на слух</button>'
+        : `<details class="dictation-help"><summary>Показать текст, если звук недоступен</summary>
+          <p lang="de-CH">${escapeHTML(answer)}</p></details>`}` : "";
   let fields;
   if (type === "choice") {
     fields = `<div class="choices">${study.optionOrder.map(position => `
       <label class="choice"><input type="radio" name="answer" value="${position}" required>
-        <span lang="de-CH">${escapeHTML(options[position])}</span></label>`).join("")}</div>`;
+        <span lang="${answerLanguage(options[position])}">${escapeHTML(options[position])}</span></label>`).join("")}</div>`;
   }
   if (type === "order") {
     fields = `<p class="muted">Нажимай на слова по порядку. Повторное нажатие убирает слово из фразы.</p>
+      ${lengths.size > 1 || !lengths.has(options.length) ? '<p class="muted">Для ответа могут понадобиться не все слова.</p>' : ""}
       <div class="word-tray" aria-label="Собранная фраза">${study.order.map(position => `
         <button type="button" lang="de-CH" data-action="remove-word" data-position="${position}">${escapeHTML(options[position])}</button>
       `).join("") || '<span class="muted">Здесь появится фраза</span>'}</div>
@@ -845,15 +949,25 @@ function renderQuestion() {
         <button type="button" lang="de-CH" data-action="add-word" data-position="${position}"
           ${study.order.includes(position) ? "disabled" : ""}>${escapeHTML(options[position])}</button>`).join("")}</div>`;
   }
-  show(scene?.title || (test ? "Тест A1.1" : study.review ? "Работа над ошибками" : "Тренировка"),
+  show(stage?.title || scene?.title || (test ? "Тест A1.1" : study.review ? "Работа над ошибками" : "Тренировка"),
     "", `
-    ${study.stage ? `<p><a class="home-link" href="#${view.id}/learn">Все шаги урока</a></p>` : ""}
-    ${study.stage?.theory ? `<details class="panel"><summary>Правило</summary>${theoryCards(study.stage.theory)}</details>` : ""}
+    ${stage ? `<div class="stage-heading">
+      <a class="home-link" href="${step < 0 ? "#repeat" : `#${view.id}`}">${step < 0 ? "К списку повторений" : "Все шаги урока"}</a>
+      <p class="muted">${step < 0 ? "Повторение" : `Шаг ${step + 1} из ${requiredStages(view.id).length}`}</p>
+      <p class="stage-title">${escapeHTML(stage.title)}</p>
+    </div>` : ""}
     ${scene ? "" : `<div class="practice-progress">
       <span>${study.review ? "Работа над ошибками · " : ""}Задание ${index + 1} из ${questions.length}</span>
       ${!test && study.streak > 1 ? `<small aria-live="polite">Верных подряд: ${study.streak}</small>` : ""}
     </div>`}
     ${scene ? sceneLine(scene, study.step.line) : ""}
+    ${rule ? `<aside class="stage-rule">
+      <strong>${escapeHTML(rule[0])}</strong>
+      <div class="example">${germanWithHints(rule[2])}${audioButton()}</div>
+      <details id="guided-rule" data-question="${index}"${ruleOpen ? " open" : ""}>
+        <summary>Посмотреть правило</summary>${theoryCards([rule])}
+      </details>
+    </aside>` : ""}
     <div class="panel exercise-panel">
       ${context ? `<div class="actions"><span hidden lang="de-CH">${escapeHTML(context.audio)}</span>${audioButton()}</div>
         <details class="dictation-help"><summary>Текст и перевод</summary>
@@ -863,8 +977,8 @@ function renderQuestion() {
       ${feedback ? `
         <div class="feedback${feedback.correct ? " feedback-correct" : ""}" role="status">
           <strong class="${feedback.correct ? "good" : "wrong"}">${feedback.correct ? "Верно" : "Проверь этот вариант"}</strong>
-          ${!feedback.correct ? `<p>Твой ответ: <span data-user-text>${escapeHTML(feedback.value)}</span></p>` : ""}
-          <p><span lang="${/[А-Яа-яЁё]/u.test(displayedAnswer) ? courseLanguage : "de-CH"}">${escapeHTML(displayedAnswer)}</span>${/[А-Яа-яЁё]/u.test(displayedAnswer) ? "" : audioButton()}</p>
+          ${!feedback.correct ? `<p>Твой ответ: <span lang="${answerLanguage(feedback.value)}">${escapeHTML(feedback.value)}</span></p>` : ""}
+          <p><span lang="${answerLanguage(displayedAnswer)}">${escapeHTML(displayedAnswer)}</span>${answerLanguage(displayedAnswer) === "de-CH" ? audioButton() : ""}</p>
         </div>
         <div class="actions"><button class="${feedback.correct ? "success-button" : "exercise-button"}" data-action="next">${(scene || study.stage) && !feedback.correct ? "Попробовать ещё раз" : scene ? "Продолжить разговор" : index + 1 === questions.length ? "Результат" : "Следующее задание"}</button></div>
         ${feedback.correct ? "" : errorRule(question, scene ? study.step.rule : undefined)}`
@@ -924,8 +1038,8 @@ function advance() {
     const question = study.questions[index];
     const [prompt, answer] = question;
     return `<article class="panel"><h3>${escapeHTML(prompt)}</h3>
-      <p>Твой ответ: <span lang="de-CH" data-user-text>${escapeHTML(result.value)}</span></p>
-      <p>Вариант ответа: <strong lang="de-CH">${escapeHTML(answer)}</strong>${audioButton()}</p>${errorRule(question)}</article>`;
+      ${result.skipped ? "<p>Задание пропущено.</p>" : `<p>Твой ответ: <span lang="${answerLanguage(result.value)}">${escapeHTML(result.value)}</span></p>`}
+      <p>Вариант ответа: <strong lang="${answerLanguage(answer)}">${escapeHTML(answer)}</strong>${answerLanguage(answer) === "de-CH" ? audioButton() : ""}</p>${errorRule(question)}</article>`;
   }).join("");
   const streak = study.test ? "" : ` · Лучшая серия: ${study.bestStreak}`;
   show("Результат", "", `
@@ -946,11 +1060,11 @@ elements.content.addEventListener("submit", event => {
   if (event.target.id !== "answer-form") return;
   event.preventDefault();
   const question = study.questions[study.index];
-  const { type, options } = questionOptions(question);
+  const { type, options, lengths } = questionOptions(question);
   const input = event.target.elements.namedItem("answer");
   let value;
   if (type === "order") {
-    if (study.order.length !== options.length) return;
+    if (!lengths.has(study.order.length)) return;
     value = study.order.map(position => options[position]).join(" ");
   } else {
     if (!input?.value) return;
@@ -990,13 +1104,7 @@ elements.content.addEventListener("click", event => {
       break;
     }
     case "speak": speak(button); break;
-    case "speak-standard": speak(button.previousElementSibling, true); break;
     case "word-hint": toggleWordHint(button); break;
-    case "read":
-      saved.theory[view.lesson.id] = true;
-      persist();
-      button.textContent = "Прочитано ✓";
-      break;
     case "word-order": {
       const ordered = button.dataset.order === "ordered";
       if (ordered === orderedWords) break;
@@ -1017,6 +1125,10 @@ elements.content.addEventListener("click", event => {
       focusContentControl("[data-action='reveal'], [data-action='scheduled-words'], [data-action='all-words']");
       break;
     case "start": renderQuestion(); focusContentControl("form input, form button"); break;
+    case "skip-listening":
+      study.answers.push({ correct: false, skipped: true });
+      advance();
+      break;
     case "start-guided":
       startGuidedStage(lessonRoutes[view.id].find(item => item.id === view.topic));
       focusContentControl("form input, form button");
